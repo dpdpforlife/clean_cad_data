@@ -48,9 +48,9 @@ class CleanCadData(bpy.types.Operator):
             bpy.ops.mesh.customdata_custom_splitnormals_clear()
             bpy.ops.object.editmode_toggle()
             bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.remove_doubles()
+            bpy.ops.mesh.remove_doubles(threshold=0.0005)
             bpy.ops.mesh.tris_convert_to_quads()
-            bpy.ops.mesh.dissolve_limited()
+            bpy.ops.mesh.dissolve_limited(angle_limit=0.00174533)
             bpy.ops.object.editmode_toggle()
             bpy.context.object.data.auto_smooth_angle = 0.15708
         for ob in bpy.context.scene.objects:
