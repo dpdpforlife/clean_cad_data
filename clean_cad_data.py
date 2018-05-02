@@ -16,49 +16,95 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 #  (c) 2018 Dan Pool (dpdp) parts based on work by meta-androcto AF: Materials Specials which features parts based on work by Saidenka, Materials Utils by MichaleW Materials Conversion: Silvio Falcinelli#
-import bpy
 
 bl_info = {
     "name": "CleanCadData",
     "author": "Dan Pool (dpdp)",
-    "version": (0,0,1),
+    "version": (0,0,2),
     "blender": (2, 79,0),
-    "description": "Welds and cleans up then merges material base names for meshes imported from some solid modellers",
+    "description": "Cleans up meshes and materials imported from some solid modellers",
     "location": "View3D > Object > Clean Cad Data",    
     "warning": "",
     "wiki_url": "",
     "tracker_url": "",
-    "category": "Mesh"}
+    "category": "Object"}
 
-class CleanCadData(bpy.types.Operator):
+
+import bpy
+import bmesh
+from bpy.types import Operator, AddonPreferences
+from bpy.props import FloatProperty
+
+
+class CleanCadData(AddonPreferences):
+    
+    bl_idname = __name__
+
+    anglelimit = FloatProperty(
+            name="Angle Limit",
+            description="Angle limit used for merging faces",
+            default=0.00174533,
+            subtype='ANGLE'
+            )
+    weldthreshold = FloatProperty(
+            name="Weld Threshold",
+            description="Threshold for welding vertices",
+            default=0.0005,
+            )
+    smangle = FloatProperty(
+            name="AutoSmooth Angle",
+            description="Smoothing angle for the autosmoothed (is that a word?) mesh",
+            default=0.15708,
+            subtype='ANGLE'
+            )
+
+    def draw(self, context):
+        layout = self.layout
+        layout.label(text="Set defaults for your CAD cleaning")
+        layout.prop(self, "anglelimit")
+        layout.prop(self, "weldthreshold")
+        layout.prop(self, "smangle")
+
+
+class OBJECT_OT_clean_cad_data(Operator):
     """Weld and clean up imported cad meshes"""
     bl_idname = "object.clean_cad_data"
     bl_label = "Clean Cad Data"
     bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return (	(len(context.selected_objects) > 0) 
-            and (context.mode == 'OBJECT')	)	
-	
+    
     def execute(self, context):
+        user_preferences = context.user_preferences
+        addon_prefs = user_preferences.addons[__name__].preferences
+
+        #remove split normals and set smoothing angle
         for obj in bpy.context.selected_objects:
             print(obj.name)
             bpy.context.scene.objects.active = obj
             bpy.ops.mesh.customdata_custom_splitnormals_clear()
-            bpy.ops.object.editmode_toggle()
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.remove_doubles(threshold=0.0005)
-            bpy.ops.mesh.tris_convert_to_quads()
-            bpy.ops.mesh.dissolve_limited(angle_limit=0.00174533)
-            bpy.ops.object.editmode_toggle()
-            bpy.context.object.data.auto_smooth_angle = 0.15708
+            bpy.context.object.data.auto_smooth_angle = addon_prefs.smangle
+        
+        #remove doubles and quadrify the mesh
+        meshes = [o.data for o in context.selected_objects if o.type == 'MESH']
+
+        bm = bmesh.new()
+
+        for m in meshes:
+            print(len(m.vertices))
+            bm.from_mesh(m)
+            bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=addon_prefs.weldthreshold)
+            bmesh.ops.dissolve_limit(bm, angle_limit=addon_prefs.anglelimit, verts=bm.verts, edges=bm.edges)
+            bm.to_mesh(m)
+            m.update()
+            bm.clear()
+        bm.free()
+            
+        #remove duplicate materials
         for ob in bpy.context.scene.objects:
             for slot in ob.material_slots:
                 self.fixup_slot(slot)
+
         return {'FINISHED'}
-	#Start Meta Androcto code as included in his addon
-	#AF: Materials Specials - http://wiki.blender.org/index.php/Extensions:2.6
+    
     def split_name(self, material):
         name = material.name
         
@@ -89,19 +135,23 @@ class CleanCadData(bpy.types.Operator):
             return
         
         slot.material = base_mat
-    #End Meta Androcto code as included in his addon
 
+
+# Registration
 def register():
-    bpy.utils.register_module(__name__)
+    bpy.utils.register_class(OBJECT_OT_clean_cad_data)
     bpy.types.VIEW3D_MT_object.append(menu_func)
+    bpy.utils.register_class(CleanCadData)
+
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
+    bpy.utils.unregister_class(OBJECT_OT_clean_cad_data)
     bpy.types.VIEW3D_MT_object.remove(menu_func)
-
+    bpy.utils.unregister_class(CleanCadData)
+    
 def menu_func(self, context):
 	#self.layout.separator()
-	self.layout.operator(CleanCadData.bl_idname)
-	
+	self.layout.operator(OBJECT_OT_clean_cad_data.bl_idname)
+
 if __name__ == "__main__":
     register()
