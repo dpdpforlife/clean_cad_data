@@ -20,8 +20,8 @@
 bl_info = {
     "name": "CleanCadData",
     "author": "Dan Pool (dpdp)",
-    "version": (0,0,2),
-    "blender": (2, 79,0),
+    "version": (0,0,3),
+    "blender": (2, 80,0),
     "description": "Cleans up meshes and materials imported from some solid modellers",
     "location": "View3D > Object > Clean Cad Data",    
     "warning": "",
