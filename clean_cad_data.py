@@ -79,7 +79,7 @@ class OBJECT_OT_clean_cad_data(Operator):
         #remove split normals and set smoothing angle
         for obj in bpy.context.selected_objects:
             print(obj.name)
-            bpy.context.scene.objects.active = obj
+            bpy.context.view_layer.objects.active = obj
             bpy.ops.mesh.customdata_custom_splitnormals_clear()
             bpy.context.object.data.auto_smooth_angle = addon_prefs.smangle
         
